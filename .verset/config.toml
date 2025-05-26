@@ -1,0 +1,26 @@
+[packages]
+patterns = [
+    "packages/*",
+    "apps/*",
+    "libs/*",
+    ".",
+]
+manual = []
+
+[changelog]
+enabled = true
+file = "CHANGELOG.md"
+format = "keep-a-changelog"
+
+[post_apply]
+commands = []
+
+[publish]
+dry_run = false
+packages = []
+
+[publish.rust]
+
+[publish.node]
+
+[publish.python]

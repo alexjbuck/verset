@@ -79,7 +79,27 @@ impl std::fmt::Display for PackageType {
             PackageType::Go => write!(f, "Go"),
             PackageType::Java => write!(f, "Java"),
             PackageType::Dotnet => write!(f, ".NET"),
-            PackageType::Custom { command } => write!(f, "Custom ({})", command),
+            PackageType::Custom { command } => write!(f, "Custom ({command})"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_change_type_parsing() {
+        assert_eq!("major".parse::<ChangeType>().unwrap(), ChangeType::Major);
+        assert_eq!("minor".parse::<ChangeType>().unwrap(), ChangeType::Minor);
+        assert_eq!("patch".parse::<ChangeType>().unwrap(), ChangeType::Patch);
+        assert!("invalid".parse::<ChangeType>().is_err());
+    }
+
+    #[test]
+    fn test_change_type_display() {
+        assert_eq!(ChangeType::Major.to_string(), "major");
+        assert_eq!(ChangeType::Minor.to_string(), "minor");
+        assert_eq!(ChangeType::Patch.to_string(), "patch");
     }
 } 
