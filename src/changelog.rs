@@ -81,7 +81,7 @@ pub fn generate(
     }
     
     // Insert new entry after the header
-    let mut lines: Vec<&str> = existing_content.lines().collect();
+    let lines: Vec<&str> = existing_content.lines().collect();
     let insert_position = lines.iter()
         .position(|line| line.starts_with("## "))
         .unwrap_or(lines.len());
@@ -90,8 +90,8 @@ pub fn generate(
     let mut new_content = String::new();
     
     // Add header lines
-    for i in 0..insert_position.min(lines.len()) {
-        new_content.push_str(lines[i]);
+    for line in lines.iter().take(insert_position) {
+        new_content.push_str(line);
         new_content.push('\n');
     }
     
@@ -99,8 +99,8 @@ pub fn generate(
     new_content.push_str(&new_entry);
     
     // Add remaining content
-    for i in insert_position..lines.len() {
-        new_content.push_str(lines[i]);
+    for line in lines.iter().skip(insert_position) {
+        new_content.push_str(line);
         new_content.push('\n');
     }
     

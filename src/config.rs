@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
@@ -64,7 +64,7 @@ pub struct PublishConfig {
     pub packages: Vec<PackagePublishConfig>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LanguagePublishConfig {
     pub registry: Option<String>,
     pub command: Option<String>,
@@ -97,15 +97,6 @@ impl Default for ChangelogConfig {
             file: "CHANGELOG.md".to_string(),
             format: "keep-a-changelog".to_string(),
             template_path: None,
-        }
-    }
-}
-
-impl Default for LanguagePublishConfig {
-    fn default() -> Self {
-        Self {
-            registry: None,
-            command: None,
         }
     }
 }

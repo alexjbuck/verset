@@ -1,5 +1,5 @@
 use std::fs;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use semver::Version;
 use crate::{Package, PackageType};
 
@@ -18,9 +18,9 @@ pub fn update_version(package: &Package, new_version: &Version) -> Result<()> {
         }
         _ => {
             // Try to detect format and update
-            if let Ok(_) = toml::from_str::<toml::Value>(&content) {
+            if toml::from_str::<toml::Value>(&content).is_ok() {
                 update_toml_version(&content, &package.version_path, new_version)?
-            } else if let Ok(_) = serde_json::from_str::<serde_json::Value>(&content) {
+            } else if serde_json::from_str::<serde_json::Value>(&content).is_ok() {
                 update_json_version(&content, &package.version_path, new_version)?
             } else {
                 return Err(anyhow::anyhow!("Unable to update version in {}", package.version_file.display()));
@@ -95,16 +95,14 @@ fn set_nested_toml_value(value: &mut toml::Value, path: &str, new_value: toml::V
         if i == parts.len() - 1 {
             // Last part - set the value
             if let toml::Value::Table(table) = current {
-                table.insert(part.to_string(), new_value);
+                table.insert((*part).to_string(), new_value);
                 return Ok(());
-            } else {
-                return Err(anyhow::anyhow!("Expected table at path"));
             }
-        } else {
-            // Navigate deeper
-            current = current.get_mut(part)
-                .ok_or_else(|| anyhow::anyhow!("Path {} not found", part))?;
+            return Err(anyhow::anyhow!("Expected table at path"));
         }
+        // Navigate deeper
+        current = current.get_mut(part)
+            .ok_or_else(|| anyhow::anyhow!("Path {} not found", part))?;
     }
     
     Ok(())
@@ -118,16 +116,14 @@ fn set_nested_json_value(value: &mut serde_json::Value, path: &str, new_value: s
         if i == parts.len() - 1 {
             // Last part - set the value
             if let serde_json::Value::Object(map) = current {
-                map.insert(part.to_string(), new_value);
+                map.insert((*part).to_string(), new_value);
                 return Ok(());
-            } else {
-                return Err(anyhow::anyhow!("Expected object at path"));
             }
-        } else {
-            // Navigate deeper
-            current = current.get_mut(part)
-                .ok_or_else(|| anyhow::anyhow!("Path {} not found", part))?;
+            return Err(anyhow::anyhow!("Expected object at path"));
         }
+        // Navigate deeper
+        current = current.get_mut(part)
+            .ok_or_else(|| anyhow::anyhow!("Path {} not found", part))?;
     }
     
     Ok(())

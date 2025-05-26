@@ -251,7 +251,7 @@ fn extract_python_version(content: &str) -> Option<String> {
 }
 
 fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
-    let content = fs::read_to_string(go_mod)?;
+    let _content = fs::read_to_string(go_mod)?;
     let name = dir.file_name().unwrap().to_str().unwrap();
     
     // Go doesn't have versions in go.mod for the module itself
@@ -278,7 +278,7 @@ fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
         path: dir.to_path_buf(),
         package_type: PackageType::Go,
         version_file: go_mod.to_path_buf(),
-        version_path: "".to_string(),
+        version_path: String::new(),
         current_version: Version::parse("0.0.0")?,
     }))
 }
@@ -286,7 +286,7 @@ fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
 fn extract_go_version(content: &str) -> Option<String> {
     // Look for const Version = "x.y.z" pattern
     for line in content.lines() {
-        if line.contains("Version") && line.contains("=") {
+        if line.contains("Version") && line.contains('=') {
             if let Some(start) = line.find('"') {
                 if let Some(end) = line.rfind('"') {
                     if start < end {

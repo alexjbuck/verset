@@ -2,7 +2,6 @@ use anyhow::Result;
 use dialoguer::{theme::ColorfulTheme, Select, Input, MultiSelect};
 use colored::Colorize;
 use crate::{Changeset, ChangeType};
-use crate::config::Config;
 use crate::detect::detect_packages;
 use crate::changeset::save_changeset;
 use chrono::Utc;

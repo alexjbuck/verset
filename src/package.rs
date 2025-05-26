@@ -1,6 +1,5 @@
 use anyhow::Result;
 use colored::Colorize;
-use crate::config::Config;
 use crate::detect::detect_packages;
 
 pub fn list() -> Result<()> {

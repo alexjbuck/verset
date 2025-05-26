@@ -4,8 +4,7 @@ use anyhow::{Result, Context};
 use chrono::Utc;
 use uuid::Uuid;
 use colored::Colorize;
-use crate::{Changeset, ChangeType, Package};
-use crate::config::Config;
+use crate::{Changeset, ChangeType};
 use crate::detect::detect_packages;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -74,8 +73,9 @@ pub fn save_changeset(changeset: &Changeset) -> Result<()> {
     
     // Generate filename
     let timestamp = changeset.created_at.format("%Y%m%d%H%M%S");
-    let id = Uuid::new_v4().to_string().split('-').next().unwrap().to_string();
-    let filename = format!("{}-{}.md", timestamp, id);
+    let id = Uuid::new_v4().to_string();
+    let id = id.split('-').next().unwrap_or(&id).to_string();
+    let filename = format!("{timestamp}-{id}.md");
     let filepath = changesets_dir.join(&filename);
     
     // Create frontmatter
@@ -167,7 +167,7 @@ pub fn status(package_filter: Option<String>) -> Result<()> {
                 }
             }
             version_impacts.entry(package_name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(changeset.change_type.clone());
         }
     }
