@@ -119,21 +119,24 @@ pub fn load_changesets() -> Result<Vec<(PathBuf, Changeset)>> {
             let content = fs::read_to_string(&path)?;
             
             // Parse frontmatter
-            if let Some(end) = content.find("---\n---") {
-                let frontmatter = &content[4..end];
-                let description = content[end + 8..].trim().to_string();
-                
-                let changeset_file: ChangesetFile = serde_yaml::from_str(frontmatter)
-                    .context(format!("Failed to parse changeset: {}", path.display()))?;
-                
-                let changeset = Changeset {
-                    packages: changeset_file.packages,
-                    change_type: changeset_file.change_type.parse()?,
-                    description,
-                    created_at: Utc::now(), // We could parse from filename if needed
-                };
-                
-                changesets.push((path, changeset));
+            if content.starts_with("---\n") {
+                // Find the end of frontmatter
+                if let Some(end_pos) = content[4..].find("\n---\n") {
+                    let frontmatter = &content[4..end_pos + 4];
+                    let description = content[end_pos + 9..].trim().to_string();
+                    
+                    let changeset_file: ChangesetFile = serde_yaml::from_str(frontmatter)
+                        .context(format!("Failed to parse changeset: {}", path.display()))?;
+                    
+                    let changeset = Changeset {
+                        packages: changeset_file.packages,
+                        change_type: changeset_file.change_type.parse()?,
+                        description,
+                        created_at: Utc::now(), // We could parse from filename if needed
+                    };
+                    
+                    changesets.push((path, changeset));
+                }
             }
         }
     }
@@ -344,10 +347,14 @@ pub fn apply(package_filter: Option<String>, dry_run: bool, no_changelog: bool) 
         // Only remove changesets that were actually applied
         let changeset_packages: Vec<String> = {
             let content = fs::read_to_string(path)?;
-            if let Some(end) = content.find("---\n---") {
-                let frontmatter = &content[4..end];
-                let changeset_file: ChangesetFile = serde_yaml::from_str(frontmatter)?;
-                changeset_file.packages
+            if content.starts_with("---\n") {
+                if let Some(end_pos) = content[4..].find("\n---\n") {
+                    let frontmatter = &content[4..end_pos + 4];
+                    let changeset_file: ChangesetFile = serde_yaml::from_str(frontmatter)?;
+                    changeset_file.packages
+                } else {
+                    continue;
+                }
             } else {
                 continue;
             }
