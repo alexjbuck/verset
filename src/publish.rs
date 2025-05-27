@@ -1,8 +1,8 @@
-use anyhow::Result;
-use colored::Colorize;
 use crate::config::Config;
 use crate::detect::detect_packages;
 use crate::PackageType;
+use anyhow::Result;
+use colored::Colorize;
 
 pub fn publish(
     package_filter: Option<String>,
@@ -11,34 +11,45 @@ pub fn publish(
 ) -> Result<()> {
     let config = crate::config::load()?;
     let packages = detect_packages(&config)?;
-    
+
     // Filter packages if specified
     let packages_to_publish: Vec<_> = if let Some(filter) = &package_filter {
         let names: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
-        packages.into_iter()
+        packages
+            .into_iter()
             .filter(|p| names.contains(&p.name))
             .collect()
     } else {
         packages
     };
-    
+
     if packages_to_publish.is_empty() {
         println!("{}", "No packages to publish".yellow());
         return Ok(());
     }
-    
-    println!("{} {} packages\n", "Publishing".green().bold(), packages_to_publish.len());
-    
+
+    println!(
+        "{} {} packages\n",
+        "Publishing".green().bold(),
+        packages_to_publish.len()
+    );
+
     for package in &packages_to_publish {
-        println!("{} {} v{}", 
+        println!(
+            "{} {} v{}",
             "Publishing".cyan(),
             package.name.bold(),
             package.current_version
         );
-        
+
         // Get publish command based on package type
-        let command = get_publish_command(&package.package_type, &config, &package.name, registry.as_deref())?;
-        
+        let command = get_publish_command(
+            &package.package_type,
+            &config,
+            &package.name,
+            registry.as_deref(),
+        )?;
+
         if dry_run {
             println!("  {} {}", "Would run:".yellow(), command);
         } else {
@@ -47,16 +58,19 @@ pub fn publish(
             // For now, we'll just simulate it
             println!("  {} Published successfully", "✓".green().bold());
         }
-        
+
         println!();
     }
-    
+
     if dry_run {
-        println!("{}", "Dry run complete. No packages were published.".yellow());
+        println!(
+            "{}",
+            "Dry run complete. No packages were published.".yellow()
+        );
     } else {
         println!("{}", "All packages published successfully!".green().bold());
     }
-    
+
     Ok(())
 }
 
@@ -72,7 +86,7 @@ fn get_publish_command(
             return Ok(pkg_config.commands.join(" && "));
         }
     }
-    
+
     // Use language-specific defaults
     match package_type {
         PackageType::Rust => {
@@ -102,4 +116,4 @@ fn get_publish_command(
         PackageType::Dotnet => Ok(String::from("dotnet nuget push")),
         PackageType::Custom { command } => Ok(command.clone()),
     }
-} 
+}

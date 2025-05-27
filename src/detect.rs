@@ -1,15 +1,15 @@
-use std::path::{Path, PathBuf};
-use std::fs;
-use anyhow::{Result, Context};
-use glob::glob;
-use crate::{Package, PackageType};
 use crate::config::Config;
+use crate::{Package, PackageType};
+use anyhow::{Context, Result};
+use glob::glob;
 use semver::Version;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub fn detect_packages(config: &Config) -> Result<Vec<Package>> {
     let mut packages = Vec::new();
     let mut seen_paths = std::collections::HashSet::new();
-    
+
     // First, add manual packages
     for manual in &config.packages.manual {
         let path = PathBuf::from(&manual.path);
@@ -17,7 +17,7 @@ pub fn detect_packages(config: &Config) -> Result<Vec<Package>> {
             let package_type = parse_package_type(&manual.package_type)?;
             let version_file = path.join(&manual.version_file);
             let current_version = read_version(&version_file, &package_type, &manual.version_path)?;
-            
+
             packages.push(Package {
                 name: manual.name.clone(),
                 path,
@@ -28,7 +28,7 @@ pub fn detect_packages(config: &Config) -> Result<Vec<Package>> {
             });
         }
     }
-    
+
     // Then, auto-detect based on patterns
     for pattern in &config.packages.patterns {
         for entry in glob(pattern)? {
@@ -40,10 +40,10 @@ pub fn detect_packages(config: &Config) -> Result<Vec<Package>> {
             }
         }
     }
-    
+
     // Sort packages by name for consistent output
     packages.sort_by(|a, b| a.name.cmp(&b.name));
-    
+
     Ok(packages)
 }
 
@@ -65,71 +65,81 @@ fn detect_package_in_dir(dir: &Path) -> Result<Option<Package>> {
     if cargo_toml.exists() {
         return detect_rust_package(dir, &cargo_toml);
     }
-    
+
     // Check for Node.js project
     let package_json = dir.join("package.json");
     if package_json.exists() {
         return detect_node_package(dir, &package_json);
     }
-    
+
     // Check for Python project
     let pyproject_toml = dir.join("pyproject.toml");
     if pyproject_toml.exists() {
         return detect_python_package(dir, &pyproject_toml);
     }
-    
+
     // Check for Go project
     let go_mod = dir.join("go.mod");
     if go_mod.exists() {
         return detect_go_package(dir, &go_mod);
     }
-    
+
     // Check for Maven project
     let pom_xml = dir.join("pom.xml");
     if pom_xml.exists() {
         return detect_maven_package(dir, &pom_xml);
     }
-    
+
     // Check for Gradle project
     let build_gradle = dir.join("build.gradle");
     let build_gradle_kts = dir.join("build.gradle.kts");
     if build_gradle.exists() || build_gradle_kts.exists() {
-        let gradle_file = if build_gradle.exists() { build_gradle } else { build_gradle_kts };
+        let gradle_file = if build_gradle.exists() {
+            build_gradle
+        } else {
+            build_gradle_kts
+        };
         return detect_gradle_package(dir, &gradle_file);
     }
-    
+
     // Check for .NET project
     let csproj_files: Vec<_> = fs::read_dir(dir)?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
-            entry.path().extension()
+            entry
+                .path()
+                .extension()
                 .and_then(|ext| ext.to_str())
                 .map(|ext| ext == "csproj")
                 .unwrap_or(false)
         })
         .collect();
-    
+
     if let Some(csproj) = csproj_files.first() {
         return detect_dotnet_package(dir, &csproj.path());
     }
-    
+
     Ok(None)
 }
 
 fn detect_rust_package(dir: &Path, cargo_toml: &Path) -> Result<Option<Package>> {
     let content = fs::read_to_string(cargo_toml)?;
     let cargo: toml::Value = toml::from_str(&content)?;
-    
-    let package = cargo.get("package").context("No [package] section in Cargo.toml")?;
-    let name = package.get("name")
+
+    let package = cargo
+        .get("package")
+        .context("No [package] section in Cargo.toml")?;
+    let name = package
+        .get("name")
         .and_then(|v| v.as_str())
         .context("No package name in Cargo.toml")?;
-    let version_str = package.get("version")
+    let version_str = package
+        .get("version")
         .and_then(|v| v.as_str())
         .context("No package version in Cargo.toml")?;
-    
+
     let version = Version::parse(version_str)?;
-    
+
     Ok(Some(Package {
         name: name.to_string(),
         path: dir.to_path_buf(),
@@ -143,16 +153,18 @@ fn detect_rust_package(dir: &Path, cargo_toml: &Path) -> Result<Option<Package>>
 fn detect_node_package(dir: &Path, package_json: &Path) -> Result<Option<Package>> {
     let content = fs::read_to_string(package_json)?;
     let package: serde_json::Value = serde_json::from_str(&content)?;
-    
-    let name = package.get("name")
+
+    let name = package
+        .get("name")
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| dir.file_name().unwrap().to_str().unwrap());
-    let version_str = package.get("version")
+    let version_str = package
+        .get("version")
         .and_then(|v| v.as_str())
         .context("No version in package.json")?;
-    
+
     let version = Version::parse(version_str)?;
-    
+
     Ok(Some(Package {
         name: name.to_string(),
         path: dir.to_path_buf(),
@@ -166,13 +178,14 @@ fn detect_node_package(dir: &Path, package_json: &Path) -> Result<Option<Package
 fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Package>> {
     let content = fs::read_to_string(pyproject_toml)?;
     let pyproject: toml::Value = toml::from_str(&content)?;
-    
+
     // Try [project] section first (PEP 621)
     if let Some(project) = pyproject.get("project") {
-        let name = project.get("name")
+        let name = project
+            .get("name")
             .and_then(|v| v.as_str())
             .unwrap_or_else(|| dir.file_name().unwrap().to_str().unwrap());
-        
+
         if let Some(version_str) = project.get("version").and_then(|v| v.as_str()) {
             let version = Version::parse(version_str)?;
             return Ok(Some(Package {
@@ -184,7 +197,7 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
                 current_version: version,
             }));
         }
-        
+
         // If we have a name but no version in pyproject.toml, check __init__.py
         let init_py = dir.join("__init__.py");
         if init_py.exists() {
@@ -202,14 +215,15 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
             }
         }
     }
-    
+
     // Try [tool.poetry] section
     if let Some(tool) = pyproject.get("tool") {
         if let Some(poetry) = tool.get("poetry") {
-            let name = poetry.get("name")
+            let name = poetry
+                .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or_else(|| dir.file_name().unwrap().to_str().unwrap());
-            
+
             if let Some(version_str) = poetry.get("version").and_then(|v| v.as_str()) {
                 let version = Version::parse(version_str)?;
                 return Ok(Some(Package {
@@ -223,14 +237,15 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
             }
         }
     }
-    
+
     // Check for __init__.py with __version__ (fallback if no pyproject.toml sections found)
     let init_py = dir.join("__init__.py");
     if init_py.exists() {
         let content = fs::read_to_string(&init_py)?;
         if let Some(version_str) = extract_python_version(&content) {
             let version = Version::parse(&version_str)?;
-            let name = dir.file_name()
+            let name = dir
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown");
             return Ok(Some(Package {
@@ -243,7 +258,7 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
             }));
         }
     }
-    
+
     Ok(None)
 }
 
@@ -271,10 +286,11 @@ fn extract_python_version(content: &str) -> Option<String> {
 
 fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
     let _content = fs::read_to_string(go_mod)?;
-    let name = dir.file_name()
+    let name = dir
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("go-package");
-    
+
     // Go doesn't have versions in go.mod for the module itself
     // We'll need to look for a version.go or similar file
     let version_file = dir.join("version.go");
@@ -292,7 +308,7 @@ fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
             }));
         }
     }
-    
+
     // Default to 0.0.0 if no version found
     Ok(Some(Package {
         name: name.to_string(),
@@ -323,7 +339,8 @@ fn extract_go_version(content: &str) -> Option<String> {
 fn detect_maven_package(dir: &Path, pom_xml: &Path) -> Result<Option<Package>> {
     // For now, return a placeholder
     // Full XML parsing would require an XML library
-    let name = dir.file_name()
+    let name = dir
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("maven-package");
     Ok(Some(Package {
@@ -339,7 +356,8 @@ fn detect_maven_package(dir: &Path, pom_xml: &Path) -> Result<Option<Package>> {
 fn detect_gradle_package(dir: &Path, gradle_file: &Path) -> Result<Option<Package>> {
     // For now, return a placeholder
     // Full Gradle parsing would be complex
-    let name = dir.file_name()
+    let name = dir
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("gradle-package");
     Ok(Some(Package {
@@ -366,13 +384,18 @@ fn detect_dotnet_package(dir: &Path, csproj: &Path) -> Result<Option<Package>> {
     }))
 }
 
-pub fn read_version(version_file: &Path, package_type: &PackageType, version_path: &str) -> Result<Version> {
+pub fn read_version(
+    version_file: &Path,
+    package_type: &PackageType,
+    version_path: &str,
+) -> Result<Version> {
     let content = fs::read_to_string(version_file)?;
-    
+
     match package_type {
         PackageType::Rust => {
             let cargo: toml::Value = toml::from_str(&content)?;
-            let version_str = cargo.get("package")
+            let version_str = cargo
+                .get("package")
                 .and_then(|p| p.get("version"))
                 .and_then(|v| v.as_str())
                 .context("Failed to read version from Cargo.toml")?;
@@ -380,7 +403,8 @@ pub fn read_version(version_file: &Path, package_type: &PackageType, version_pat
         }
         PackageType::Node => {
             let package: serde_json::Value = serde_json::from_str(&content)?;
-            let version_str = package.get("version")
+            let version_str = package
+                .get("version")
                 .and_then(|v| v.as_str())
                 .context("Failed to read version from package.json")?;
             Version::parse(version_str).context("Invalid version in package.json")
@@ -421,21 +445,24 @@ pub fn read_version(version_file: &Path, package_type: &PackageType, version_pat
 fn get_nested_value<'a>(value: &'a toml::Value, path: &str) -> Option<&'a toml::Value> {
     let parts: Vec<&str> = path.split('.').collect();
     let mut current = value;
-    
+
     for part in parts {
         current = current.get(part)?;
     }
-    
+
     Some(current)
 }
 
-fn get_nested_json_value<'a>(value: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
+fn get_nested_json_value<'a>(
+    value: &'a serde_json::Value,
+    path: &str,
+) -> Option<&'a serde_json::Value> {
     let parts: Vec<&str> = path.split('.').collect();
     let mut current = value;
-    
+
     for part in parts {
         current = current.get(part)?;
     }
-    
+
     Some(current)
-} 
+}

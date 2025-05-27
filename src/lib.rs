@@ -1,15 +1,15 @@
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 use semver::Version;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-pub mod config;
-pub mod package;
-pub mod changeset;
-pub mod version;
 pub mod changelog;
-pub mod publish;
+pub mod changeset;
+pub mod config;
 pub mod detect;
 pub mod interactive;
+pub mod package;
+pub mod publish;
+pub mod version;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ChangeType {
@@ -102,4 +102,4 @@ mod tests {
         assert_eq!(ChangeType::Minor.to_string(), "minor");
         assert_eq!(ChangeType::Patch.to_string(), "patch");
     }
-} 
+}

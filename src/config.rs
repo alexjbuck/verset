@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::fs;
-use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use colored::Colorize;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -102,7 +102,12 @@ impl Default for ChangelogConfig {
 }
 
 fn default_patterns() -> Vec<String> {
-    vec!["packages/*".to_string(), "apps/*".to_string(), "libs/*".to_string(), ".".to_string()]
+    vec![
+        "packages/*".to_string(),
+        "apps/*".to_string(),
+        "libs/*".to_string(),
+        ".".to_string(),
+    ]
 }
 
 fn default_true() -> bool {
@@ -119,38 +124,41 @@ fn default_changelog_format() -> String {
 
 pub fn init() -> Result<()> {
     let verset_dir = Path::new(".verset");
-    
+
     if verset_dir.exists() {
-        println!("{}", "Verset is already initialized in this repository".yellow());
+        println!(
+            "{}",
+            "Verset is already initialized in this repository".yellow()
+        );
         return Ok(());
     }
-    
+
     // Create .verset directory
     fs::create_dir(verset_dir).context("Failed to create .verset directory")?;
-    
+
     // Create changesets directory
     fs::create_dir(verset_dir.join("changesets"))
         .context("Failed to create changesets directory")?;
-    
+
     // Create default config
     let config = Config::default();
     let config_path = verset_dir.join("config.toml");
-    let config_toml = toml::to_string_pretty(&config)
-        .context("Failed to serialize default config")?;
-    
-    fs::write(&config_path, config_toml)
-        .context("Failed to write config file")?;
-    
+    let config_toml =
+        toml::to_string_pretty(&config).context("Failed to serialize default config")?;
+
+    fs::write(&config_path, config_toml).context("Failed to write config file")?;
+
     println!("{} Created .verset/config.toml", "✓".green().bold());
     println!("{} Created .verset/changesets/", "✓".green().bold());
-    
+
     // Auto-detect packages
     match crate::detect::detect_packages(&config) {
         Ok(packages) => {
             if !packages.is_empty() {
                 println!("\n{}", "Detected packages:".cyan().bold());
                 for package in &packages {
-                    println!("  {} {} ({})", 
+                    println!(
+                        "  {} {} ({})",
                         "•".cyan(),
                         package.name.bold(),
                         package.package_type
@@ -163,53 +171,61 @@ pub fn init() -> Result<()> {
             println!("You may need to configure packages manually in .verset/config.toml");
         }
     }
-    
+
     println!("\n{}", "Verset initialized successfully!".green().bold());
     println!("Next steps:");
     println!("  • Review .verset/config.toml");
-    println!("  • Run {} to create your first changeset", "verset add".cyan());
-    
+    println!(
+        "  • Run {} to create your first changeset",
+        "verset add".cyan()
+    );
+
     Ok(())
 }
 
 pub fn load() -> Result<Config> {
     let config_path = Path::new(".verset/config.toml");
-    
+
     if !config_path.exists() {
         return Err(anyhow::anyhow!(
             "Verset is not initialized. Run {} first.",
             "verset init".cyan()
         ));
     }
-    
-    let config_str = fs::read_to_string(config_path)
-        .context("Failed to read config file")?;
-    
-    let config: Config = toml::from_str(&config_str)
-        .context("Failed to parse config file")?;
-    
+
+    let config_str = fs::read_to_string(config_path).context("Failed to read config file")?;
+
+    let config: Config = toml::from_str(&config_str).context("Failed to parse config file")?;
+
     Ok(config)
 }
 
 pub fn validate() -> Result<()> {
     let config = load()?;
-    
+
     println!("{} Configuration loaded successfully", "✓".green().bold());
-    
+
     // Validate patterns
     if config.packages.patterns.is_empty() && config.packages.manual.is_empty() {
-        return Err(anyhow::anyhow!("No package patterns or manual packages defined"));
+        return Err(anyhow::anyhow!(
+            "No package patterns or manual packages defined"
+        ));
     }
-    
+
     // Detect packages
     let packages = crate::detect::detect_packages(&config)?;
-    
+
     if packages.is_empty() {
         println!("{} No packages detected", "⚠".yellow().bold());
     } else {
-        println!("{} {} packages detected", "✓".green().bold(), packages.len());
+        println!(
+            "{} {} packages detected",
+            "✓".green().bold(),
+            packages.len()
+        );
         for package in &packages {
-            println!("  {} {} v{} ({})",
+            println!(
+                "  {} {} v{} ({})",
                 "•".cyan(),
                 package.name,
                 package.current_version,
@@ -217,27 +233,33 @@ pub fn validate() -> Result<()> {
             );
         }
     }
-    
+
     // Check changesets directory
     let changesets_dir = Path::new(".verset/changesets");
     if !changesets_dir.exists() {
         return Err(anyhow::anyhow!("Changesets directory not found"));
     }
-    
+
     // Count pending changesets
     let changeset_count = fs::read_dir(changesets_dir)?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
-            entry.path().extension()
+            entry
+                .path()
+                .extension()
                 .and_then(|ext| ext.to_str())
                 .map(|ext| ext == "md")
                 .unwrap_or(false)
         })
         .count();
-    
-    println!("{} {} pending changesets", "✓".green().bold(), changeset_count);
-    
+
+    println!(
+        "{} {} pending changesets",
+        "✓".green().bold(),
+        changeset_count
+    );
+
     println!("\n{}", "Configuration is valid!".green().bold());
-    
+
     Ok(())
-} 
+}
