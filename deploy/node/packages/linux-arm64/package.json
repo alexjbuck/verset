@@ -1,0 +1,10 @@
+{
+  "name": "@verset/linux-arm64",
+  "version": "0.1.0",
+  "description": "verset binary for Linux arm64",
+  "repository": "https://github.com/alexjbuck/verset",
+  "license": "MIT",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin/verset"]
+} 

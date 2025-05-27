@@ -1,0 +1,10 @@
+{
+  "name": "@verset/darwin-arm64",
+  "version": "0.1.0",
+  "description": "verset binary for macOS arm64",
+  "repository": "https://github.com/alexjbuck/verset",
+  "license": "MIT",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin/verset"]
+} 

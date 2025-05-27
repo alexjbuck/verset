@@ -1,0 +1,10 @@
+{
+  "name": "@verset/win32-x64",
+  "version": "0.1.0",
+  "description": "verset binary for Windows x64",
+  "repository": "https://github.com/alexjbuck/verset",
+  "license": "MIT",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["bin/verset.exe"]
+} 
