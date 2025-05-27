@@ -184,6 +184,23 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
                 current_version: version,
             }));
         }
+        
+        // If we have a name but no version in pyproject.toml, check __init__.py
+        let init_py = dir.join("__init__.py");
+        if init_py.exists() {
+            let init_content = fs::read_to_string(&init_py)?;
+            if let Some(version_str) = extract_python_version(&init_content) {
+                let version = Version::parse(&version_str)?;
+                return Ok(Some(Package {
+                    name: name.to_string(),
+                    path: dir.to_path_buf(),
+                    package_type: PackageType::Python,
+                    version_file: init_py,
+                    version_path: "__version__".to_string(),
+                    current_version: version,
+                }));
+            }
+        }
     }
     
     // Try [tool.poetry] section
@@ -207,13 +224,15 @@ fn detect_python_package(dir: &Path, pyproject_toml: &Path) -> Result<Option<Pac
         }
     }
     
-    // Check for __init__.py with __version__
+    // Check for __init__.py with __version__ (fallback if no pyproject.toml sections found)
     let init_py = dir.join("__init__.py");
     if init_py.exists() {
         let content = fs::read_to_string(&init_py)?;
         if let Some(version_str) = extract_python_version(&content) {
             let version = Version::parse(&version_str)?;
-            let name = dir.file_name().unwrap().to_str().unwrap();
+            let name = dir.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown");
             return Ok(Some(Package {
                 name: name.to_string(),
                 path: dir.to_path_buf(),
@@ -252,7 +271,9 @@ fn extract_python_version(content: &str) -> Option<String> {
 
 fn detect_go_package(dir: &Path, go_mod: &Path) -> Result<Option<Package>> {
     let _content = fs::read_to_string(go_mod)?;
-    let name = dir.file_name().unwrap().to_str().unwrap();
+    let name = dir.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("go-package");
     
     // Go doesn't have versions in go.mod for the module itself
     // We'll need to look for a version.go or similar file
@@ -302,7 +323,9 @@ fn extract_go_version(content: &str) -> Option<String> {
 fn detect_maven_package(dir: &Path, pom_xml: &Path) -> Result<Option<Package>> {
     // For now, return a placeholder
     // Full XML parsing would require an XML library
-    let name = dir.file_name().unwrap().to_str().unwrap();
+    let name = dir.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("maven-package");
     Ok(Some(Package {
         name: name.to_string(),
         path: dir.to_path_buf(),
@@ -316,7 +339,9 @@ fn detect_maven_package(dir: &Path, pom_xml: &Path) -> Result<Option<Package>> {
 fn detect_gradle_package(dir: &Path, gradle_file: &Path) -> Result<Option<Package>> {
     // For now, return a placeholder
     // Full Gradle parsing would be complex
-    let name = dir.file_name().unwrap().to_str().unwrap();
+    let name = dir.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("gradle-package");
     Ok(Some(Package {
         name: name.to_string(),
         path: dir.to_path_buf(),

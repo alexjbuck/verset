@@ -145,16 +145,22 @@ pub fn init() -> Result<()> {
     println!("{} Created .verset/changesets/", "✓".green().bold());
     
     // Auto-detect packages
-    let packages = crate::detect::detect_packages(&config)?;
-    
-    if !packages.is_empty() {
-        println!("\n{}", "Detected packages:".cyan().bold());
-        for package in &packages {
-            println!("  {} {} ({})", 
-                "•".cyan(),
-                package.name.bold(),
-                package.package_type
-            );
+    match crate::detect::detect_packages(&config) {
+        Ok(packages) => {
+            if !packages.is_empty() {
+                println!("\n{}", "Detected packages:".cyan().bold());
+                for package in &packages {
+                    println!("  {} {} ({})", 
+                        "•".cyan(),
+                        package.name.bold(),
+                        package.package_type
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            println!("\n{} Failed to detect packages: {}", "⚠".yellow().bold(), e);
+            println!("You may need to configure packages manually in .verset/config.toml");
         }
     }
     
