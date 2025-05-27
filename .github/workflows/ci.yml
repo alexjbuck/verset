@@ -97,11 +97,8 @@ jobs:
       - name: Check Python package
         working-directory: deploy/python
         run: |
-          # Install dependencies
-          uv pip install --system build hatchling
-          
           # Try building a wheel (without binaries, just to check the packaging)
-          python -m build --sdist
+          uv build
           
           # List what was built
           ls -la dist/
