@@ -6,7 +6,7 @@ glob = "0.3"
 indicatif = "0.17"
 serde_json = "1.0"
 serde_yaml = "0.9"
-toml = "0.8"
+toml = "0.9"
 
 [dependencies.chrono]
 features = ["serde"]
