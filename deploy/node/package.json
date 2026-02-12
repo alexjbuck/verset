@@ -1,0 +1,45 @@
+{
+  "name": "@verset/cli",
+  "version": "0.1.0",
+  "description": "Universal changeset management for all languages",
+  "keywords": [
+    "changeset",
+    "version",
+    "release",
+    "monorepo",
+    "versioning"
+  ],
+  "homepage": "https://github.com/alexjbuck/verset",
+  "bugs": {
+    "url": "https://github.com/alexjbuck/verset/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexjbuck/verset.git"
+  },
+  "license": "MIT",
+  "author": "Alex Buck <alex@alexjbuck.com>",
+  "type": "module",
+  "main": "./lib/index.js",
+  "bin": {
+    "verset": "./lib/cli.js"
+  },
+  "files": [
+    "lib",
+    "postinstall.js"
+  ],
+  "scripts": {
+    "postinstall": "node ./postinstall.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "packageManager": "yarn@4.0.2",
+  "optionalDependencies": {
+    "@verset/darwin-x64": "0.1.0",
+    "@verset/darwin-arm64": "0.1.0",
+    "@verset/linux-x64": "0.1.0",
+    "@verset/linux-arm64": "0.1.0",
+    "@verset/win32-x64": "0.1.0"
+  }
+} 

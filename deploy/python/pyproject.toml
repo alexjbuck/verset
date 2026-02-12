@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "verset"
+version = "0.1.0"
+description = "Universal changeset management for all languages"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Alex Buck", email = "alex@alexjbuck.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Version Control",
+]
+
+[project.urls]
+Homepage = "https://github.com/alexjbuck/verset"
+Issues = "https://github.com/alexjbuck/verset/issues"
+
+[project.scripts]
+verset = "verset.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["verset"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"bin/verset" = "scripts/verset"
+"bin/verset.exe" = "scripts/verset.exe"
+
+[tool.cibuildwheel]
+# Build for common platforms
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+skip = ["*-musllinux*", "*i686*", "*win32*"]
+
+# We need to copy the pre-built binary before building the wheel
+before-build = """
+  mkdir -p {package}/bin
+  cp /host/target/*/release/verset{,.exe} {package}/bin/ 2>/dev/null || true
+"""
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"] 

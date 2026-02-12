@@ -1,0 +1,238 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # Build the Rust binaries for all platforms
+  build-rust:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            use_cross: false
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            use_cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            use_cross: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            use_cross: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            use_cross: false
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Install cross
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+      
+      - name: Build with cross
+        if: matrix.use_cross
+        run: cross build --release --target ${{ matrix.target }}
+      
+      - name: Build with cargo
+        if: ${{ !matrix.use_cross }}
+        run: cargo build --release --target ${{ matrix.target }}
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: verset-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/verset${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+  # Build Python wheels
+  build-python-wheels:
+    needs: build-rust
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+      
+      - name: Organize binaries
+        run: |
+          # Create directory structure matching what build_wheels.py expects
+          mkdir -p target/x86_64-unknown-linux-gnu/release
+          mkdir -p target/aarch64-unknown-linux-gnu/release
+          mkdir -p target/x86_64-apple-darwin/release
+          mkdir -p target/aarch64-apple-darwin/release
+          mkdir -p target/x86_64-pc-windows-msvc/release
+          
+          # Copy binaries to expected locations
+          cp binaries/verset-x86_64-unknown-linux-gnu/verset target/x86_64-unknown-linux-gnu/release/
+          cp binaries/verset-aarch64-unknown-linux-gnu/verset target/aarch64-unknown-linux-gnu/release/
+          cp binaries/verset-x86_64-apple-darwin/verset target/x86_64-apple-darwin/release/
+          cp binaries/verset-aarch64-apple-darwin/verset target/aarch64-apple-darwin/release/
+          cp binaries/verset-x86_64-pc-windows-msvc/verset.exe target/x86_64-pc-windows-msvc/release/
+          
+          # Make Unix binaries executable
+          chmod +x target/*/release/verset
+      
+      - name: Build wheels
+        working-directory: deploy/python
+        run: |
+          uv pip install --system build
+          python build_wheels.py
+      
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels
+          path: deploy/python/dist/*.whl
+
+  # Build npm packages
+  build-npm-packages:
+    needs: build-rust
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+      
+      - name: Package binaries for npm
+        run: |
+          # Copy binaries to platform packages
+          mkdir -p deploy/node/packages/linux-x64/bin
+          cp binaries/verset-x86_64-unknown-linux-gnu/verset deploy/node/packages/linux-x64/bin/
+          chmod +x deploy/node/packages/linux-x64/bin/verset
+          
+          mkdir -p deploy/node/packages/linux-arm64/bin
+          cp binaries/verset-aarch64-unknown-linux-gnu/verset deploy/node/packages/linux-arm64/bin/
+          chmod +x deploy/node/packages/linux-arm64/bin/verset
+          
+          mkdir -p deploy/node/packages/darwin-x64/bin
+          cp binaries/verset-x86_64-apple-darwin/verset deploy/node/packages/darwin-x64/bin/
+          chmod +x deploy/node/packages/darwin-x64/bin/verset
+          
+          mkdir -p deploy/node/packages/darwin-arm64/bin
+          cp binaries/verset-aarch64-apple-darwin/verset deploy/node/packages/darwin-arm64/bin/
+          chmod +x deploy/node/packages/darwin-arm64/bin/verset
+          
+          mkdir -p deploy/node/packages/win32-x64/bin
+          cp binaries/verset-x86_64-pc-windows-msvc/verset.exe deploy/node/packages/win32-x64/bin/
+          
+          # Package each platform
+          cd deploy/node/packages
+          for pkg in darwin-* linux-* win32-*; do
+            cd $pkg && npm pack && cd ..
+          done
+      
+      - name: Upload npm packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-packages
+          path: deploy/node/packages/*/*.tgz
+
+  # Create GitHub Release
+  release:
+    needs: [build-rust, build-python-wheels, build-npm-packages]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/verset-*/verset*
+            artifacts/python-wheels/*.whl
+            artifacts/npm-packages/*.tgz
+          draft: true
+          generate_release_notes: true
+          # TODO: Use verset to generate release notes once we add that feature
+          # For now, using GitHub's automatic release notes generation
+
+  # Publish to crates.io
+  publish-crates:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+
+  # Publish to PyPI
+  publish-pypi:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-wheels
+          path: dist
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  # Publish to npm
+  publish-npm:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Download npm packages
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-packages
+          path: packages
+      
+      - name: Publish platform packages
+        run: |
+          # Scoped packages need --access public on first publish
+          for pkg in packages/*.tgz; do
+            npm publish $pkg --access public
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Publish main package
+        working-directory: deploy/node
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 

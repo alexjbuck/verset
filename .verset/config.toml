@@ -3,6 +3,7 @@ patterns = [
     "packages/*",
     "apps/*",
     "libs/*",
+    "deploy/*",
     ".",
 ]
 manual = []
